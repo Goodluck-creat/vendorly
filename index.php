@@ -1,0 +1,1 @@
+<?php echo "Vendorly staging is live"; ?>
