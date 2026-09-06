@@ -176,7 +176,7 @@ $featured = [
   <div class="wrap headerbar">
     <div class="wordmark"><div class="chip"></div>Vendorly</div>
     <nav class="mainnav">
-      <a href="/register.php">Marketplace</a>
+      <a href="/customer/home.php">Marketplace</a>
       <a href="/register.php">PinPoint</a>
       <a href="/register.php">Riders</a>
       <a href="/register.php">For businesses</a>
@@ -198,7 +198,7 @@ $featured = [
       <h1>Everything local, delivered right to your door.</h1>
       <p>Browse real shops nearby, negotiate a price directly with the seller, and track delivery to a PinPoint location a rider can actually find.</p>
       <div class="hero-ctas">
-        <a href="/register.php" class="btn on-dark">Start browsing</a>
+        <a href="/customer/home.php" class="btn on-dark">Start browsing</a>
         <a href="/register.php" class="btn on-dark outline">List your business</a>
       </div>
     </div>
@@ -230,7 +230,7 @@ $featured = [
   <section class="featured">
     <div class="section-head">
       <h2>Featured on Vendorly</h2>
-      <a href="/register.php">See more</a>
+      <a href="/customer/home.php">See more</a>
     </div>
     <div class="product-grid">
       <?php foreach ($featured as $item): ?>
@@ -240,7 +240,7 @@ $featured = [
           <div class="pname"><?= htmlspecialchars($item['name']) ?></div>
           <div class="prow">
             <span class="price"><?= htmlspecialchars($item['price']) ?></span>
-            <a href="/register.php" class="btn ghost">View</a>
+            <a href="/customer/home.php" class="btn ghost">View</a>
           </div>
         </div>
       <?php endforeach; ?>
@@ -267,12 +267,12 @@ $featured = [
     <div class="dual-card a">
       <h3>New on Vendorly</h3>
       <p>Businesses that just opened their storefront this week.</p>
-      <a href="/register.php" class="btn on-dark small" style="width:fit-content;">Browse new shops</a>
+      <a href="/customer/home.php" class="btn on-dark small" style="width:fit-content;">Browse new shops</a>
     </div>
     <div class="dual-card b">
       <h3>Trending nearby</h3>
       <p>The products getting the most orders in your area right now.</p>
-      <a href="/register.php" class="btn on-dark small" style="width:fit-content;">See what's trending</a>
+      <a href="/customer/home.php" class="btn on-dark small" style="width:fit-content;">See what's trending</a>
     </div>
   </div>
 </div>
@@ -286,8 +286,8 @@ $featured = [
       </div>
       <div class="footer-col">
         <h4>Marketplace</h4>
-        <a href="/register.php">Browse shops</a>
-        <a href="/register.php">Categories</a>
+        <a href="/customer/home.php">Browse shops</a>
+        <a href="/customer/home.php">Categories</a>
         <a href="/register.php">How negotiation works</a>
       </div>
       <div class="footer-col">

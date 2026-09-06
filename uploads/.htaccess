@@ -1,0 +1,4 @@
+# Uploaded files are never trusted to execute as code, no matter what gets past validation upstream.
+php_flag engine off
+AddHandler cgi-script .php .php3 .php4 .php5 .php7 .phtml .pl .py .jsp .asp .sh .cgi
+Options -ExecCGI -Indexes
