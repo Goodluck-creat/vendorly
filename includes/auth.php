@@ -108,6 +108,7 @@ function login_session(array $user): void {
     $_SESSION['user_id'] = $user['id'];
     $_SESSION['role']    = $user['role'];
     $_SESSION['name']    = $user['name'];
+    $_SESSION['status']  = $user['status'];
 }
 
 function current_user_id(): ?int {
@@ -159,6 +160,126 @@ function role_home_path(string $role): string {
         'admin'    => '/admin/overview.php',
         default    => '/customer/home.php',
     };
+}
+
+/* ---------------------- Guest buyers (Tier 2: no password, real identity) ---------------------- */
+
+/**
+ * Create a guest buyer — a real users row with role=customer, status=guest, and an unusable
+ * random password (they can't log in with it; they can only "claim" the account later by setting
+ * a real one). Logs them into the session immediately, exactly like a normal login.
+ *
+ * If the phone or email already belongs to an existing ACTIVE account, we don't silently create
+ * a duplicate — we tell them to log in instead, same as the registration duplicate check.
+ *
+ * Returns the new (or existing, if already an active guest session) user array.
+ */
+function start_guest_session(string $name, string $phone, ?string $email): array {
+    if (trim($name) === '') {
+        throw new Exception('Name is required.');
+    }
+    if (trim($phone) === '') {
+        throw new Exception('Phone number is required.');
+    }
+
+    $pdo = db();
+
+    // Does an ACTIVE (real, password-set) account already use this phone or email?
+    $check = $pdo->prepare(
+        "SELECT id, status FROM users WHERE phone = :phone_val OR (email = :email_val AND email IS NOT NULL) LIMIT 1"
+    );
+    $check->execute(['phone_val' => $phone, 'email_val' => $email]);
+    $existing = $check->fetch();
+
+    if ($existing && $existing['status'] !== 'guest') {
+        throw new Exception('An account with that phone or email already exists. Please log in instead.');
+    }
+
+    if ($existing && $existing['status'] === 'guest') {
+        // They've chatted/ordered as a guest before with this phone — reuse the same identity
+        // rather than fragmenting their history across two guest rows.
+        $stmt = $pdo->prepare('SELECT * FROM users WHERE id = :id');
+        $stmt->execute(['id' => $existing['id']]);
+        $user = $stmt->fetch();
+        login_session($user);
+        return $user;
+    }
+
+    // Brand new guest — email is optional, so fall back to a unique placeholder to satisfy the
+    // UNIQUE constraint without colliding with anyone else's real email.
+    $email = $email ?: ('guest_' . bin2hex(random_bytes(6)) . '@no-email.vendorly.local');
+    $unusablePassword = password_hash(bin2hex(random_bytes(32)), PASSWORD_DEFAULT); // nobody knows this; only "claim" can set a real one
+
+    $stmt = $pdo->prepare(
+        'INSERT INTO users (name, email, phone, password_hash, role, status)
+         VALUES (:name, :email, :phone, :password_hash, :role, :status)'
+    );
+    $stmt->execute([
+        'name' => $name, 'email' => $email, 'phone' => $phone,
+        'password_hash' => $unusablePassword, 'role' => 'customer', 'status' => 'guest',
+    ]);
+    $userId = (int) $pdo->lastInsertId();
+
+    $stmt = $pdo->prepare('SELECT * FROM users WHERE id = :id');
+    $stmt->execute(['id' => $userId]);
+    $user = $stmt->fetch();
+
+    login_session($user);
+    return $user;
+}
+
+function is_guest(): bool {
+    return is_logged_in() && ($_SESSION['status'] ?? null) === 'guest';
+}
+
+/**
+ * Upgrade the currently logged-in guest into a fully registered account by setting a real password.
+ * Same user_id throughout — their order and chat history simply becomes visible under a real account,
+ * because it was always attached to this row.
+ */
+function claim_guest_account(string $password, ?string $email = null): void {
+    if (!is_guest()) {
+        throw new Exception('No guest session to upgrade.');
+    }
+    if (strlen($password) < 8) {
+        throw new Exception('Password must be at least 8 characters.');
+    }
+
+    $pdo = db();
+    $userId = current_user_id();
+
+    $fields = ['password_hash = :hash', 'status = :status'];
+    $params = ['hash' => password_hash($password, PASSWORD_DEFAULT), 'status' => 'active', 'id' => $userId];
+
+    if ($email) {
+        $check = $pdo->prepare('SELECT id FROM users WHERE email = :email AND id != :id LIMIT 1');
+        $check->execute(['email' => $email, 'id' => $userId]);
+        if ($check->fetch()) {
+            throw new Exception('That email is already in use by another account.');
+        }
+        $fields[] = 'email = :email';
+        $params['email'] = $email;
+    }
+
+    $sql = 'UPDATE users SET ' . implode(', ', $fields) . ' WHERE id = :id';
+    $pdo->prepare($sql)->execute($params);
+
+    $_SESSION['status'] = 'active'; // keep the session's cached status in sync immediately
+}
+
+/**
+ * Generate a customer-facing order code in the GLV-##### format, guaranteed unique against
+ * existing orders. Used for both guest and registered orders alike — a guest tracks their
+ * order by this code, exactly as if they'd registered.
+ */
+function generate_order_code(): string {
+    $pdo = db();
+    do {
+        $code = 'GLV-' . str_pad((string) random_int(0, 99999), 5, '0', STR_PAD_LEFT);
+        $check = $pdo->prepare('SELECT id FROM orders WHERE order_code = :code LIMIT 1');
+        $check->execute(['code' => $code]);
+    } while ($check->fetch());
+    return $code;
 }
 
 /* ---------------------- CSRF protection ---------------------- */

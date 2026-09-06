@@ -4,6 +4,10 @@ start_secure_session();
 
 $errors = [];
 $oldEmail = '';
+$redirect = $_GET['redirect'] ?? $_POST['redirect'] ?? null;
+if ($redirect && !str_starts_with($redirect, '/')) {
+    $redirect = null; // never trust this as an open redirect target
+}
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     verify_csrf();
@@ -20,7 +24,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $errors[] = 'Incorrect email/phone or password.';
             } else {
                 login_session($user);
-                header('Location: ' . role_home_path($user['role']));
+                header('Location: ' . ($redirect ?: role_home_path($user['role'])));
                 exit;
             }
         } catch (Exception $e) {
@@ -55,6 +59,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <?php endforeach; ?>
     <form method="POST" action="/login.php">
       <?= csrf_field() ?>
+      <?php if ($redirect): ?><input type="hidden" name="redirect" value="<?= htmlspecialchars($redirect) ?>"><?php endif; ?>
       <label>Email or phone</label>
       <input type="text" name="email_or_phone" value="<?= htmlspecialchars($oldEmail) ?>" required>
       <label>Password</label>
