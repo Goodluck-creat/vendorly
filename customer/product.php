@@ -110,17 +110,18 @@ foreach (get_product_media($productId) as $m) {
   <div class="cta-bar">
     <?php
       $isFixed = ($product['pricing_mode'] ?? 'fixed') === 'fixed';
+      $addToCartUrl = '/customer/add_to_cart.php?product_id=' . $product['id'];
+      $chatUrl = '/customer/chat.php?business_id=' . $product['business_id'] . '&product_id=' . $product['id'];
+      $targetUrl = $isFixed ? $addToCartUrl : $chatUrl;
+      $guestRedirect = '/customer/guest_start.php?redirect=' . urlencode($targetUrl);
       $ctaLabel = $isFixed ? 'Order now' : 'Chat to negotiate';
-      $guestRedirect = '/customer/guest_start.php?redirect=' . urlencode('/customer/product.php?id=' . $product['id']);
     ?>
-    <a href="<?= is_logged_in() ? '#' : $guestRedirect ?>" class="btn <?= is_logged_in() ? 'pending' : '' ?>">
+    <a href="<?= is_logged_in() ? htmlspecialchars($targetUrl) : $guestRedirect ?>" class="btn">
       <?= htmlspecialchars($ctaLabel) ?>
     </a>
     <?php if (is_guest()): ?>
-      <div class="note">Continuing as <?= htmlspecialchars($_SESSION['name']) ?>. <?= $isFixed ? 'Cart & checkout' : 'Full chat' ?> ships in Stage 3.</div>
-    <?php elseif (is_logged_in()): ?>
-      <div class="note"><?= $isFixed ? 'Cart & checkout' : 'Full chat' ?> ships in Stage 3.</div>
-    <?php else: ?>
+      <div class="note">Continuing as <?= htmlspecialchars($_SESSION['name']) ?>.</div>
+    <?php elseif (!is_logged_in()): ?>
       <div class="note">We'll just ask your name and phone — no password needed to <?= $isFixed ? 'order' : 'chat' ?>.</div>
     <?php endif; ?>
   </div>

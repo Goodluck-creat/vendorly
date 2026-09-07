@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/../includes/marketplace.php';
 require_once __DIR__ . '/../includes/icons.php';
+require_once __DIR__ . '/../includes/business_layout.php';
 start_secure_session();
 require_role('business');
 
@@ -15,11 +16,15 @@ $business = ensure_business_has_slug($bizStmt->fetch());
 $shopfrontUrl = business_shopfront_url($business);
 
 $countStmt = db()->prepare("SELECT
-    SUM(status = 'active') AS active_count,
-    COUNT(*) AS total_count
+    SUM(status = 'active') AS active_count, COUNT(*) AS total_count
     FROM products WHERE business_id = :bid");
 $countStmt->execute(['bid' => $businessId]);
 $counts = $countStmt->fetch();
+
+$revStmt = db()->prepare("SELECT COUNT(*) AS order_count, COALESCE(SUM(agreed_price),0) AS revenue
+    FROM orders WHERE business_id = :bid AND payment_status = 'paid'");
+$revStmt->execute(['bid' => $businessId]);
+$rev = $revStmt->fetch();
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -36,84 +41,71 @@ $counts = $countStmt->fetch();
   h1{ font-family:'Sora',sans-serif; }
   a{ text-decoration:none; }
   .icon{ width:20px; height:20px; vertical-align:middle; }
-  :focus-visible{ outline:2.5px solid var(--accent); outline-offset:2px; }
+  <?= business_layout_styles() ?>
 
-  .wrap{ max-width:640px; margin:0 auto; padding:32px 20px 60px; }
-  .topbar{ display:flex; align-items:center; justify-content:space-between; margin-bottom:22px; }
-  .wordmark{ display:flex; align-items:center; gap:9px; font-weight:800; font-size:16px; color:var(--ink); }
-  .wordmark .chip{ width:24px; height:24px; border-radius:7px; background:linear-gradient(135deg,var(--brand),var(--brand-deep)); }
-  .icon-btn{ display:flex; align-items:center; gap:6px; color:var(--ink-soft); font-size:13px; font-weight:600; }
-  .icon-btn .icon{ width:17px; height:17px; }
-
-  h1{ font-size:23px; margin:0 0 6px; animation: rise .5s ease both; }
-  .badge{ display:inline-flex; align-items:center; gap:6px; background:#FCE7DA; color:#B1471B; padding:5px 12px; border-radius:20px; font-size:12px; font-weight:700; margin-bottom:20px; }
+  .content-wrap{ max-width:920px; margin:0 auto; padding:32px 32px 60px; }
+  h1{ font-size:25px; margin:0 0 6px; }
+  .badge{ display:inline-flex; align-items:center; gap:6px; background:#FCE7DA; color:#B1471B; padding:5px 12px; border-radius:20px; font-size:12px; font-weight:700; margin-bottom:22px; }
   .badge .icon{ width:14px; height:14px; }
 
-  @keyframes rise{ from{ opacity:0; transform:translateY(10px); } to{ opacity:1; transform:translateY(0); } }
-  .stagger{ animation: rise .5s ease both; }
-  @media (prefers-reduced-motion: reduce){ h1,.stagger{ animation:none; } }
-
-  .linkcard{ background:#fff; border:1.5px solid var(--brand); border-radius:14px; padding:18px; margin-bottom:22px; animation-delay:.05s; }
-  .linklabel{ display:flex; align-items:center; gap:7px; font-size:11.5px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; color:var(--ink-soft); margin-bottom:10px; }
+  .linkcard{ background:#fff; border:1.5px solid var(--brand); border-radius:14px; padding:18px 22px; margin-bottom:24px; display:flex; align-items:center; gap:20px; flex-wrap:wrap; }
+  .linklabel{ display:flex; align-items:center; gap:7px; font-size:11.5px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; color:var(--ink-soft); margin-bottom:8px; }
   .linklabel .icon{ width:15px; height:15px; }
-  .linkrow{ display:flex; gap:8px; }
+  .linkrow{ display:flex; gap:8px; flex:1; min-width:260px; }
   .linkrow input{ flex:1; padding:10px 13px; border:1.5px solid var(--line); border-radius:9px; font-size:13px; color:var(--brand); font-weight:600; background:var(--brand-tint); font-family:inherit; }
   .linkrow button{ display:flex; align-items:center; gap:6px; padding:10px 16px; background:var(--brand); color:#fff; border:none; border-radius:9px; font-weight:700; font-size:13px; cursor:pointer; transition:background .18s ease; }
   .linkrow button:hover{ background:var(--brand-deep); }
   .linkrow button .icon{ width:15px; height:15px; }
-  .linknote{ font-size:11.5px; color:var(--ink-soft); margin-top:9px; }
+  .linknote{ font-size:11.5px; color:var(--ink-soft); flex-basis:100%; }
 
-  .statgrid{ display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:22px; animation-delay:.1s; }
-  .statcard{ background:#fff; border:1px solid var(--line); border-radius:14px; padding:18px; display:flex; align-items:center; gap:12px; }
-  .statcard .icwrap{ width:38px; height:38px; border-radius:10px; background:var(--brand-tint); color:var(--brand); display:flex; align-items:center; justify-content:center; flex:none; }
-  .statcard .val{ font-size:22px; font-weight:800; color:var(--ink); line-height:1.1; }
-  .statcard .lbl{ font-size:12px; color:var(--ink-soft); }
+  .statgrid{ display:grid; grid-template-columns:repeat(3,1fr); gap:16px; margin-bottom:8px; }
+  .statcard{ background:#fff; border:1px solid var(--line); border-radius:14px; padding:20px; display:flex; align-items:center; gap:14px; transition:transform .16s ease, box-shadow .16s ease; }
+  .statcard:hover{ transform:translateY(-2px); box-shadow:0 10px 26px rgba(15,34,34,.08); }
+  .statcard .icwrap{ width:44px; height:44px; border-radius:12px; background:var(--brand-tint); color:var(--brand); display:flex; align-items:center; justify-content:center; flex:none; }
+  .statcard .val{ font-size:24px; font-weight:800; color:var(--ink); line-height:1.1; }
+  .statcard .lbl{ font-size:12.5px; color:var(--ink-soft); }
 
-  .btn{ display:flex; align-items:center; justify-content:center; gap:8px; width:100%; padding:14px; background:var(--brand); color:#fff; border-radius:11px; font-weight:700; font-size:14.5px; transition:background .18s ease, transform .12s ease; animation-delay:.15s; }
-  .btn:hover{ background:var(--brand-deep); }
-  .btn:active{ transform:scale(0.98); }
-  .btn .icon{ width:18px; height:18px; }
-
-  a.logout{ display:flex; align-items:center; gap:6px; justify-content:center; margin-top:20px; font-size:13px; color:var(--ink-soft); }
-  a.logout .icon{ width:15px; height:15px; }
-
-  @media (max-width:420px){ .wrap{ padding:24px 16px 50px; } .statgrid{ gap:10px; } .statcard{ padding:14px; } }
+  @media (max-width:700px){
+    .content-wrap{ padding:24px 18px 50px; }
+    .statgrid{ grid-template-columns:1fr; gap:12px; }
+  }
 </style>
 </head>
 <body>
-<div class="wrap">
-  <div class="topbar">
-    <div class="wordmark"><div class="chip"></div>Vendorly</div>
-    <a href="/logout.php" class="icon-btn"><?= icon('log-out', 'icon') ?>Log out</a>
-  </div>
+<?= business_layout_head('dashboard', $business['business_name']) ?>
+  <div class="content-wrap">
+    <h1>Welcome, <?= htmlspecialchars($_SESSION['name']) ?></h1>
+    <?php if ($accountStatus === 'pending'): ?>
+      <div class="badge"><?= icon('clock', 'icon') ?>Pending verification</div>
+    <?php endif; ?>
 
-  <h1>Welcome, <?= htmlspecialchars($_SESSION['name']) ?></h1>
-  <?php if ($accountStatus === 'pending'): ?>
-    <div class="badge"><?= icon('clock', 'icon') ?>Pending verification</div>
-  <?php endif; ?>
-
-  <div class="linkcard stagger">
-    <div class="linklabel"><?= icon('link', 'icon') ?>Your shopfront link</div>
-    <div class="linkrow">
-      <input type="text" readonly value="<?= htmlspecialchars($shopfrontUrl) ?>" id="shopUrl" onclick="this.select()">
-      <button type="button" onclick="copyShopLink()"><?= icon('copy', 'icon') ?>Copy</button>
+    <div class="linkcard">
+      <div style="flex-basis:100%;">
+        <div class="linklabel"><?= icon('link', 'icon') ?>Your shopfront link</div>
+        <div class="linkrow">
+          <input type="text" readonly value="<?= htmlspecialchars($shopfrontUrl) ?>" id="shopUrl" onclick="this.select()">
+          <button type="button" onclick="copyShopLink()"><?= icon('copy', 'icon') ?>Copy</button>
+        </div>
+      </div>
+      <div class="linknote">Share this link anywhere — anyone who opens it lands straight on your shop.</div>
     </div>
-    <div class="linknote">Share this link anywhere — anyone who opens it lands straight on your shop.</div>
-  </div>
 
-  <div class="statgrid stagger">
-    <div class="statcard">
-      <div class="icwrap"><?= icon('check-circle') ?></div>
-      <div><div class="val"><?= (int) ($counts['active_count'] ?? 0) ?></div><div class="lbl">Active items</div></div>
-    </div>
-    <div class="statcard">
-      <div class="icwrap"><?= icon('package') ?></div>
-      <div><div class="val"><?= (int) ($counts['total_count'] ?? 0) ?></div><div class="lbl">Total items</div></div>
+    <div class="statgrid">
+      <div class="statcard">
+        <div class="icwrap"><?= icon('check-circle') ?></div>
+        <div><div class="val"><?= (int) ($counts['active_count'] ?? 0) ?></div><div class="lbl">Active items</div></div>
+      </div>
+      <div class="statcard">
+        <div class="icwrap"><?= icon('package') ?></div>
+        <div><div class="val"><?= (int) $rev['order_count'] ?></div><div class="lbl">Paid orders</div></div>
+      </div>
+      <div class="statcard">
+        <div class="icwrap"><?= icon('star') ?></div>
+        <div><div class="val">₦<?= number_format((float) $rev['revenue'], 0) ?></div><div class="lbl">Total revenue</div></div>
+      </div>
     </div>
   </div>
-
-  <a href="/business/products.php" class="btn stagger"><?= icon('store', 'icon') ?>Manage products</a>
-</div>
+<?= business_layout_foot() ?>
 <script>
 function copyShopLink(){
   const input = document.getElementById('shopUrl');

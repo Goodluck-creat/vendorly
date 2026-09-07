@@ -1,8 +1,13 @@
 <?php
 require_once __DIR__ . '/../includes/marketplace.php';
 require_once __DIR__ . '/../includes/icons.php';
+require_once __DIR__ . '/../includes/business_layout.php';
 start_secure_session();
 require_role('business');
+
+$bizStmt = db()->prepare('SELECT * FROM businesses WHERE id = :id');
+$bizStmt->execute(['id' => current_business_id()]);
+$businessRow = $bizStmt->fetch();
 
 $businessId = current_business_id();
 
@@ -36,7 +41,7 @@ $statusMeta = [
   .icon{ width:20px; height:20px; vertical-align:middle; }
   :focus-visible{ outline:2.5px solid var(--accent); outline-offset:2px; }
 
-  .wrap{ max-width:720px; margin:0 auto; padding:28px 20px 60px; }
+  .wrap{ max-width:840px; margin:0 auto; padding:32px 32px 60px; }
   .top-link{ display:inline-flex; align-items:center; gap:6px; color:var(--brand); font-size:13.5px; font-weight:600; }
   .top-link .icon{ width:16px; height:16px; }
 
@@ -80,17 +85,20 @@ $statusMeta = [
   .empty-state{ text-align:center; padding:60px 20px; color:var(--ink-soft); }
   .empty-state .icon{ width:36px; height:36px; margin-bottom:12px; opacity:.5; }
 
+  @media (max-width:700px){
+    .wrap{ padding:24px 18px 50px; }
+  }
   @media (max-width:520px){
-    .wrap{ padding:22px 16px 50px; }
     .pcard{ flex-wrap:wrap; padding:12px; }
     .pactions{ flex-direction:row; width:100%; margin-top:8px; }
     .pactions .btn{ flex:1; justify-content:center; }
   }
+  <?= business_layout_styles() ?>
 </style>
 </head>
 <body>
+<?= business_layout_head('products', $businessRow['business_name']) ?>
 <div class="wrap">
-  <a href="/business/dashboard.php" class="top-link"><?= icon('arrow-left', 'icon') ?>Dashboard</a>
   <div class="topbar">
     <h1>Your products</h1>
     <a href="/business/product_form.php" class="btn primary"><?= icon('plus', 'icon') ?>Add product</a>
@@ -142,6 +150,7 @@ $statusMeta = [
     </div>
   <?php endif; ?>
 </div>
+<?= business_layout_foot() ?>
 <script>
 const io = new IntersectionObserver((entries)=>{
   entries.forEach(e=>{ if (e.isIntersecting){ e.target.classList.add('in-view'); io.unobserve(e.target); } });

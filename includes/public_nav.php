@@ -13,11 +13,13 @@ function render_public_nav(string $searchValue = ''): string {
             $name = htmlspecialchars($_SESSION['name']);
             $accountLinks = '
                 <span style="color:#5C6E6C;">Hi, ' . $name . '</span>
+                <a href="/customer/orders.php">My orders</a>
                 <a href="/customer/claim_account.php" class="btn primary small">Save my account</a>
                 <a href="/logout.php">Log out</a>
             ';
         } else {
             $accountLinks = '
+                <a href="/customer/orders.php">My orders</a>
                 <a href="' . htmlspecialchars($accountHome) . '">My account</a>
                 <a href="/logout.php">Log out</a>
             ';
