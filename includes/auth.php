@@ -64,8 +64,9 @@ function register_user(string $name, string $email, string $phone, string $passw
         $userId = (int) $pdo->lastInsertId();
 
         if ($role === 'business') {
-            $pdo->prepare('INSERT INTO businesses (user_id, business_name) VALUES (:uid, :bname)')
-                ->execute(['uid' => $userId, 'bname' => $name]);
+            $slug = generate_unique_slug($name);
+            $pdo->prepare('INSERT INTO businesses (user_id, business_name, slug) VALUES (:uid, :bname, :slug)')
+                ->execute(['uid' => $userId, 'bname' => $name, 'slug' => $slug]);
         } elseif ($role === 'rider') {
             $pdo->prepare('INSERT INTO riders (user_id) VALUES (:uid)')
                 ->execute(['uid' => $userId]);
@@ -160,6 +161,61 @@ function role_home_path(string $role): string {
         'admin'    => '/admin/overview.php',
         default    => '/customer/home.php',
     };
+}
+
+/**
+ * Turn a business name into a clean, URL-safe slug, guaranteed unique against
+ * existing businesses. Two shops both called "Mama Nkechi's Kitchen" get
+ * mama-nkechis-kitchen and mama-nkechis-kitchen-2, not a collision.
+ */
+function generate_unique_slug(string $businessName): string {
+    $base = strtolower(trim($businessName));
+    $base = preg_replace('/[^a-z0-9]+/', '-', $base); // anything not a-z0-9 becomes a hyphen
+    $base = trim($base, '-');
+    if ($base === '') {
+        $base = 'shop';
+    }
+
+    $pdo = db();
+    $slug = $base;
+    $suffix = 2;
+    while (true) {
+        $check = $pdo->prepare('SELECT id FROM businesses WHERE slug = :slug LIMIT 1');
+        $check->execute(['slug' => $slug]);
+        if (!$check->fetch()) {
+            return $slug;
+        }
+        $slug = $base . '-' . $suffix;
+        $suffix++;
+    }
+}
+
+/**
+ * Look up a business by its shopfront slug. If an older business somehow has
+ * no slug yet (e.g. created before this feature existed), generate and save
+ * one on the fly — no manual backfill script needed.
+ */
+function get_business_by_slug(string $slug): ?array {
+    $stmt = db()->prepare('SELECT * FROM businesses WHERE slug = :slug LIMIT 1');
+    $stmt->execute(['slug' => $slug]);
+    return $stmt->fetch() ?: null;
+}
+
+function ensure_business_has_slug(array $business): array {
+    if (!empty($business['slug'])) {
+        return $business;
+    }
+    $slug = generate_unique_slug($business['business_name']);
+    db()->prepare('UPDATE businesses SET slug = :slug WHERE id = :id')
+        ->execute(['slug' => $slug, 'id' => $business['id']]);
+    $business['slug'] = $slug;
+    return $business;
+}
+
+function business_shopfront_url(array $business): string {
+    $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+    $host = $_SERVER['HTTP_HOST'] ?? 'vendorly-staging.glovatech.com.ng';
+    return $scheme . '://' . $host . '/' . $business['slug'];
 }
 
 /* ---------------------- Guest buyers (Tier 2: no password, real identity) ---------------------- */
